@@ -1,0 +1,52 @@
+[package]
+name = "sample-bevy-utility-app"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+eyre = "0.6.12"
+tracing = "0.1.41"
+tracing-subscriber = "0.3.20"
+windows = { version = "0.62.0", features = [
+    "Win32_Foundation",
+    "Win32_Graphics_Gdi",
+    "Win32_Media_Audio",
+    "Win32_Networking_WinSock",
+    "Win32_NetworkManagement_IpHelper",
+    "Win32_NetworkManagement_WNet",
+    "Win32_Security",
+    "Win32_Storage_FileSystem",
+    "Win32_Storage",
+    "Win32_System_Com_StructuredStorage",
+    "Win32_System_Com_Urlmon",
+    "Win32_System_Com",
+    "Win32_System_Console",
+    "Win32_System_IO",
+    "Win32_System_Ioctl",
+    "Win32_System_JobObjects",
+    "Win32_System_LibraryLoader",
+    "Win32_System_Mmc",
+    "Win32_System_Ole",
+    "Win32_System_Registry",
+    "Win32_System_SystemServices",
+    "Win32_System_Threading",
+    "Win32_System_Variant",
+    "Win32_UI_Controls",
+    "Win32_UI_Shell_Common",
+    "Win32_UI_Shell_PropertiesSystem",
+    "Win32_UI_Shell",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_UI",
+] }
+color-eyre = "0.6.5"
+bevy_log = "0.16.1"
+teamy-rust-windows-utils = "0.1.0"
+clap = { version = "4.0", features = ["derive"] }
+bevy = "0.17.0-rc.1"
+
+[patch.crates-io]
+teamy-rust-windows-utils = { path = "../teamy-rust-windows-utils" }
+
+
+[build-dependencies]
+embed-resource = "3.0.3"
