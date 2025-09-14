@@ -1,9 +1,14 @@
+use eyre::Context;
 use std::process::Command;
-use teamy_rust_windows_utils::tray::{WM_TASKBAR_CREATED, WM_USER_TRAY_CALLBACK, delete_tray_icon, re_add_tray_icon};
-use tracing::{error, info};
+use teamy_rust_windows_utils::console::console_create;
+use teamy_rust_windows_utils::console::console_detach;
+use teamy_rust_windows_utils::tray::WM_TASKBAR_CREATED;
+use teamy_rust_windows_utils::tray::WM_USER_TRAY_CALLBACK;
+use teamy_rust_windows_utils::tray::delete_tray_icon;
+use teamy_rust_windows_utils::tray::re_add_tray_icon;
+use tracing::error;
+use tracing::info;
 use windows::Win32::Foundation::*;
-use windows::Win32::System::Console::AttachConsole;
-use windows::Win32::System::Console::FreeConsole;
 use windows::Win32::UI::WindowsAndMessaging::*;
 use windows::core::w;
 
@@ -18,6 +23,21 @@ pub unsafe extern "system" fn window_proc(
     wparam: WPARAM,
     lparam: LPARAM,
 ) -> LRESULT {
+    match window_proc_inner(hwnd, message, wparam, lparam) {
+        Ok(result) => result,
+        Err(e) => {
+            error!("Error in window_proc: {}", e);
+            LRESULT(0)
+        }
+    }
+}
+
+fn window_proc_inner(
+    hwnd: HWND,
+    message: u32,
+    wparam: WPARAM,
+    lparam: LPARAM,
+) -> eyre::Result<LRESULT> {
     match message {
         WM_USER_TRAY_CALLBACK => {
             match lparam.0 as u32 {
@@ -27,35 +47,32 @@ pub unsafe extern "system" fn window_proc(
                         error!("Failed to launch Bevy: {}", e);
                     }
                 }
-                WM_RBUTTONUP => info!("Tray icon right button up"),
-                WM_CONTEXTMENU => show_context_menu(hwnd),
+                WM_RBUTTONUP => show_context_menu(hwnd)?,
+                WM_CONTEXTMENU => show_context_menu(hwnd)?,
                 _ => info!("Tray icon unknown event: {}", lparam.0),
             }
-            LRESULT(0)
+            Ok(LRESULT(0))
         }
         m if m == *WM_TASKBAR_CREATED => {
-            if let Err(e) = re_add_tray_icon() {
-                error!("Failed to re-add tray icon: {}", e);
-            }
-            LRESULT(0)
+            re_add_tray_icon()?;
+            Ok(LRESULT(0))
         }
         WM_COMMAND => {
             let id = wparam.0 as usize;
             match id {
                 ID_SHOW_LOGS => {
                     info!("Showing logs");
-                    // Attach to parent's console
-                    unsafe { let _ = AttachConsole(u32::MAX); }; // ATTACH_PARENT_PROCESS
+                    _ = console_detach();
+                    console_create()?;
+                    info!("You may use the 'Hide Logs' tray action to hide the console again.");
                 }
                 ID_HIDE_LOGS => {
                     info!("Hiding logs");
-                    unsafe { let _ = FreeConsole(); };
+                    _ = console_detach()?;
                 }
                 ID_LAUNCH_BEVY => {
                     info!("Launching Bevy");
-                    if let Err(e) = launch_bevy() {
-                        error!("Failed to launch Bevy: {}", e);
-                    }
+                    launch_bevy()?;
                 }
                 ID_EXIT => {
                     info!("Exiting");
@@ -63,43 +80,44 @@ pub unsafe extern "system" fn window_proc(
                 }
                 _ => {}
             }
-            LRESULT(0)
+            Ok(LRESULT(0))
         }
         WM_CLOSE => {
-            if let Err(e) = delete_tray_icon(hwnd) {
-                error!("Failed to delete tray icon: {}", e);
-            }
+            delete_tray_icon(hwnd)?;
             unsafe { DestroyWindow(hwnd) }.ok();
-            LRESULT(0)
+            Ok(LRESULT(0))
         }
         WM_DESTROY => {
             unsafe { PostQuitMessage(0) };
-            LRESULT(0)
+            Ok(LRESULT(0))
         }
-        _ => unsafe { DefWindowProcW(hwnd, message, wparam, lparam) },
+        _ => Ok(unsafe { DefWindowProcW(hwnd, message, wparam, lparam) }),
     }
 }
 
-fn show_context_menu(hwnd: HWND) {
+fn show_context_menu(hwnd: HWND) -> eyre::Result<()> {
     unsafe {
-        let menu = CreatePopupMenu().unwrap();
-        AppendMenuW(menu, MF_STRING, ID_SHOW_LOGS, w!("Show Logs")).unwrap();
-        AppendMenuW(menu, MF_STRING, ID_HIDE_LOGS, w!("Hide Logs")).unwrap();
-        AppendMenuW(menu, MF_SEPARATOR, 0, None).unwrap();
-        AppendMenuW(menu, MF_STRING, ID_LAUNCH_BEVY, w!("Launch Bevy")).unwrap();
-        AppendMenuW(menu, MF_SEPARATOR, 0, None).unwrap();
-        AppendMenuW(menu, MF_STRING, ID_EXIT, w!("Exit")).unwrap();
+        let menu = CreatePopupMenu()?;
+        AppendMenuW(menu, MF_STRING, ID_SHOW_LOGS, w!("Show Logs"))?;
+        AppendMenuW(menu, MF_STRING, ID_HIDE_LOGS, w!("Hide Logs"))?;
+        AppendMenuW(menu, MF_SEPARATOR, 0, None)?;
+        AppendMenuW(menu, MF_STRING, ID_LAUNCH_BEVY, w!("Launch Bevy"))?;
+        AppendMenuW(menu, MF_SEPARATOR, 0, None)?;
+        AppendMenuW(menu, MF_STRING, ID_EXIT, w!("Exit"))?;
 
         let mut point = POINT::default();
-        GetCursorPos(&mut point).unwrap();
-        TrackPopupMenu(menu, TPM_RIGHTBUTTON, point.x, point.y, Some(0), hwnd, None).unwrap();
-        DestroyMenu(menu).unwrap();
+        GetCursorPos(&mut point)?;
+        SetForegroundWindow(hwnd).ok()?;
+        TrackPopupMenu(menu, TPM_RIGHTBUTTON, point.x, point.y, Some(0), hwnd, None).ok()?;
+        DestroyMenu(menu)?;
     }
+    Ok(())
 }
 
 fn launch_bevy() -> eyre::Result<()> {
     Command::new(std::env::current_exe()?)
         .arg("--bevy")
-        .spawn()?;
+        .spawn()
+        .wrap_err("Bevy process did not run happily")?;
     Ok(())
 }

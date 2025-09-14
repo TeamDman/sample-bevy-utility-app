@@ -3,7 +3,7 @@ use eyre::Result;
 
 mod window_proc;
 
-use teamy_rust_windows_utils::{console::{detach_console, is_inheriting_console}, hicon::get_icon_from_current_module};
+use teamy_rust_windows_utils::{console::{console_detach, is_inheriting_console}, hicon::get_icon_from_current_module};
 use window_proc::window_proc;
 
 #[derive(Parser)]
@@ -63,7 +63,7 @@ fn run_tray() -> Result<()> {
 
     // Handle console
     if !is_inheriting_console() {
-        detach_console();
+        _ = console_detach();
     }
 
     // Create window
