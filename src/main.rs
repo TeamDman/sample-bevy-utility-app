@@ -3,7 +3,7 @@ use eyre::Result;
 
 mod window_proc;
 
-use teamy_rust_windows_utils::hicon::get_icon_from_current_module;
+use teamy_rust_windows_utils::{console::{detach_console, is_inheriting_console}, hicon::get_icon_from_current_module};
 use window_proc::window_proc;
 
 #[derive(Parser)]
@@ -43,7 +43,7 @@ fn run_bevy() -> Result<()> {
 }
 
 fn run_tray() -> Result<()> {
-    use teamy_rust_windows_utils::console::{is_inheriting_console, detach_console};
+    // use teamy_rust_windows_utils::console::{is_inheriting_console, detach_console};
     use teamy_rust_windows_utils::event_loop::run_message_loop;
     use teamy_rust_windows_utils::tray::add_tray_icon;
     use teamy_rust_windows_utils::window::create_window_for_tray;

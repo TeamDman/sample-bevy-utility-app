@@ -20,8 +20,16 @@ pub unsafe extern "system" fn window_proc(
 ) -> LRESULT {
     match message {
         WM_USER_TRAY_CALLBACK => {
-            if (lparam.0 as u32) == WM_CONTEXTMENU {
-                show_context_menu(hwnd);
+            match lparam.0 as u32 {
+                WM_LBUTTONUP => {
+                    info!("Tray icon left button up - launching Bevy");
+                    if let Err(e) = launch_bevy() {
+                        error!("Failed to launch Bevy: {}", e);
+                    }
+                }
+                WM_RBUTTONUP => info!("Tray icon right button up"),
+                WM_CONTEXTMENU => show_context_menu(hwnd),
+                _ => info!("Tray icon unknown event: {}", lparam.0),
             }
             LRESULT(0)
         }
