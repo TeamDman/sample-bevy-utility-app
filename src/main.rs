@@ -1,10 +1,17 @@
-use clap::Parser;
-use eyre::Result;
-
+pub mod logs;
 mod window_proc;
 
-use teamy_rust_windows_utils::{console::{console_detach, is_inheriting_console}, hicon::get_icon_from_current_module};
+use crate::logs::init_console;
+use crate::logs::init_tracing;
+use clap::Parser;
+use eyre::Result;
+use teamy_rust_windows_utils::event_loop::run_message_loop;
+use teamy_rust_windows_utils::hicon::get_icon_from_current_module;
+use teamy_rust_windows_utils::tray::add_tray_icon;
+use teamy_rust_windows_utils::window::create_window_for_tray;
+use tracing::info;
 use window_proc::window_proc;
+use windows::core::w;
 
 #[derive(Parser)]
 struct Args {
@@ -43,39 +50,20 @@ fn run_bevy() -> Result<()> {
 }
 
 fn run_tray() -> Result<()> {
-    // use teamy_rust_windows_utils::console::{is_inheriting_console, detach_console};
-    use teamy_rust_windows_utils::event_loop::run_message_loop;
-    use teamy_rust_windows_utils::tray::add_tray_icon;
-    use teamy_rust_windows_utils::window::create_window_for_tray;
-    use tracing::{info, level_filters::LevelFilter};
-    use tracing_subscriber::{EnvFilter, fmt::SubscriberBuilder, util::SubscriberInitExt};
-    use windows::core::w;
-
-    // Setup tracing
-    SubscriberBuilder::default()
-        .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-            EnvFilter::builder().parse_lossy(LevelFilter::INFO.to_string())
-        }))
-        .finish()
-        .init();
-
+    init_tracing()?;
     info!("Starting tray application");
 
-    // Handle console
-    if !is_inheriting_console() {
-        _ = console_detach();
-    }
+    init_console()?;
 
-    // Create window
     let window = create_window_for_tray(Some(window_proc))?;
 
-    // Add tray icon
-    let icon = get_icon_from_current_module(w!("aaa_my_icon"))?;
-    let tooltip = w!("Sample Bevy Utility App");
-    add_tray_icon(window, icon, tooltip)?;
+    add_tray_icon(
+        window,
+        get_icon_from_current_module(w!("aaa_my_icon"))?,
+        w!("Sample Bevy Utility App"),
+    )?;
 
-    // Run message loop
-    run_message_loop()?;
+    run_message_loop(None)?;
 
     Ok(())
 }
