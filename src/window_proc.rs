@@ -1,9 +1,8 @@
-use crate::logs::LOG_BUFFER;
-use crate::logs::LOG_DISPLAY_STATE;
-use crate::logs::LogDisplayState;
-use eyre::Context;
+use crate::logs::LOGS_CONTEXT_MENU_BUTTON;
+use crate::logs::LogsContextMenuButton;
+use crate::main_bevy_bootstrap::launch_bevy;
 use teamy_rust_windows_utils::console::attach_ctrl_c_handler;
-use std::process::Command;
+use teamy_rust_windows_utils::log::LOG_BUFFER;
 use teamy_rust_windows_utils::console::console_attach;
 use teamy_rust_windows_utils::console::console_create;
 use teamy_rust_windows_utils::console::console_detach;
@@ -14,6 +13,7 @@ use teamy_rust_windows_utils::tray::re_add_tray_icon;
 use tracing::debug;
 use tracing::error;
 use tracing::info;
+use tracing::trace;
 use windows::Win32::Foundation::*;
 use windows::Win32::System::Console::ATTACH_PARENT_PROCESS;
 use windows::Win32::UI::WindowsAndMessaging::*;
@@ -56,7 +56,7 @@ fn window_proc_inner(
                 }
                 WM_RBUTTONUP => show_context_menu(hwnd)?,
                 WM_CONTEXTMENU => show_context_menu(hwnd)?,
-                _ => info!("Tray icon unknown event: {}", lparam.0),
+                _ => trace!("Tray icon unknown event: {}", lparam.0),
             }
             Ok(LRESULT(0))
         }
@@ -80,7 +80,7 @@ fn window_proc_inner(
                     attach_ctrl_c_handler()?;
 
                     debug!("Updating log status");
-                    *(LOG_DISPLAY_STATE.lock().unwrap()) = LogDisplayState::AttachedToConsole;
+                    *(LOGS_CONTEXT_MENU_BUTTON.lock().unwrap()) = LogsContextMenuButton::HideLogs;
 
                     debug!("Replaying log buffer to new console");
                     LOG_BUFFER.replay(&mut std::io::stderr())?;
@@ -101,7 +101,7 @@ fn window_proc_inner(
                     }
 
                     debug!("Updating log status");
-                    *(LOG_DISPLAY_STATE.lock().unwrap()) = LogDisplayState::DetachedFromConsole;
+                    *(LOGS_CONTEXT_MENU_BUTTON.lock().unwrap()) = LogsContextMenuButton::ShowLogs;
 
                     Ok(LRESULT(0))
                 }
@@ -135,11 +135,11 @@ fn window_proc_inner(
 fn show_context_menu(hwnd: HWND) -> eyre::Result<()> {
     unsafe {
         let menu = CreatePopupMenu()?;
-        match *LOG_DISPLAY_STATE.lock().unwrap() {
-            LogDisplayState::AttachedToConsole => {
+        match *LOGS_CONTEXT_MENU_BUTTON.lock().unwrap() {
+            LogsContextMenuButton::HideLogs => {
                 AppendMenuW(menu, MF_STRING, ID_HIDE_LOGS, w!("Hide Logs"))?;
             }
-            LogDisplayState::DetachedFromConsole => {
+            LogsContextMenuButton::ShowLogs => {
                 AppendMenuW(menu, MF_STRING, ID_SHOW_LOGS, w!("Show Logs"))?;
             }
         }
@@ -154,13 +154,5 @@ fn show_context_menu(hwnd: HWND) -> eyre::Result<()> {
         TrackPopupMenu(menu, TPM_RIGHTBUTTON, point.x, point.y, Some(0), hwnd, None).ok()?;
         DestroyMenu(menu)?;
     }
-    Ok(())
-}
-
-fn launch_bevy() -> eyre::Result<()> {
-    Command::new(std::env::current_exe()?)
-        .arg("--bevy")
-        .spawn()
-        .wrap_err("Bevy process did not run happily")?;
     Ok(())
 }

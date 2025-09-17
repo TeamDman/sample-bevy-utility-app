@@ -4739,6 +4739,7 @@ version = "0.1.0"
 dependencies = [
  "eyre",
  "tracing",
+ "tracing-subscriber",
  "widestring",
  "windows 0.62.0",
 ]
