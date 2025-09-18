@@ -33,7 +33,11 @@ pub unsafe extern "system" fn window_proc(
     match window_proc_inner(hwnd, message, wparam, lparam) {
         Ok(result) => result,
         Err(e) => {
+            // Attempt to display the error
             error!("Error in window_proc: {}", e);
+
+            // Write the error to a timestamped log file
+            // This is useful for debugging problems surrounding console attaching and detaching
             let datetime = chrono::Local::now();
             let filename = format!("error_{}.log", datetime.format("%Y%m%d_%H%M%S"));
             if let Err(e) = std::fs::write(&filename, format!("Error in window_proc: {}\n", e)) {
@@ -41,11 +45,14 @@ pub unsafe extern "system" fn window_proc(
             } else {
                 error!("Wrote error log to {}", filename);
             }
+
+            // Return a default value to avoid crashing the program
             LRESULT(0)
         }
     }
 }
 
+/// Wrapper for window_proc to allow returning Result for question mark operator
 fn window_proc_inner(
     hwnd: HWND,
     message: u32,
