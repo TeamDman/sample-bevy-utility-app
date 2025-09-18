@@ -28,7 +28,16 @@ pub fn init_tracing() -> eyre::Result<()> {
                 .with_default_directive(Level::DEBUG.into())
                 .from_env_lossy(),
         )
-        .with_writer(std::io::stderr.and(LOG_BUFFER.clone()))
+        .with_writer(
+            std::io::stderr
+            .and(LOG_BUFFER.clone())
+            .and(std::fs::OpenOptions::new()
+                .create(true)
+                .write(true)
+                .truncate(true)
+                .open("logs.txt")
+                .expect("Failed to open log file"))
+        )
         .finish()
         .init();
     Ok(())

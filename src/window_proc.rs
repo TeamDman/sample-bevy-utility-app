@@ -34,6 +34,13 @@ pub unsafe extern "system" fn window_proc(
         Ok(result) => result,
         Err(e) => {
             error!("Error in window_proc: {}", e);
+            let datetime = chrono::Local::now();
+            let filename = format!("error_{}.log", datetime.format("%Y%m%d_%H%M%S"));
+            if let Err(e) = std::fs::write(&filename, format!("Error in window_proc: {}\n", e)) {
+                error!("Failed to write error log to {}: {}", filename, e);
+            } else {
+                error!("Wrote error log to {}", filename);
+            }
             LRESULT(0)
         }
     }
@@ -76,9 +83,6 @@ fn window_proc_inner(
                     debug!("Creating new console");
                     console_create()?;
 
-                    debug!("Attaching ctrl+c handler to new console");
-                    attach_ctrl_c_handler()?;
-
                     debug!("Updating log status");
                     *(LOGS_CONTEXT_MENU_BUTTON.lock().unwrap()) = LogsContextMenuButton::HideLogs;
 
@@ -92,17 +96,17 @@ fn window_proc_inner(
                     info!("Hiding logs");
 
                     debug!("Detaching console");
-                    _ = console_detach();
+                    console_detach()?;
+
+                    debug!("Updating log status");
+                    *(LOGS_CONTEXT_MENU_BUTTON.lock().unwrap()) = LogsContextMenuButton::ShowLogs;
 
                     debug!("Attaching to parent console if present");
                     if console_attach(ATTACH_PARENT_PROCESS).is_ok() {
                         debug!("Attaching ctrl+c handler to new console");
                         attach_ctrl_c_handler()?;
                     }
-
-                    debug!("Updating log status");
-                    *(LOGS_CONTEXT_MENU_BUTTON.lock().unwrap()) = LogsContextMenuButton::ShowLogs;
-
+                    
                     Ok(LRESULT(0))
                 }
                 ID_LAUNCH_BEVY => {

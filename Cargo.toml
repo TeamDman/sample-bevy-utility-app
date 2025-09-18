@@ -43,6 +43,7 @@ bevy_log = "0.16.1"
 teamy-rust-windows-utils = "0.1.0"
 clap = { version = "4.0", features = ["derive"] }
 bevy = "0.17.0-rc.1"
+chrono = "0.4.42"
 
 [patch.crates-io]
 teamy-rust-windows-utils = { path = "../teamy-rust-windows-utils" }
